@@ -1,0 +1,103 @@
+Nathaniel Deimler
+Deduplicator Psuedocode
+
+Define Problem: During library preparation PCR is required to increase the amount of genetic material
+available for sequencing.  However, this presents problems in that not all cDNA molecules are equally amplified.  
+This results in an unequal coverage of DNA during genome alignment and can result in an increased confidence that 
+should not be there or erros in genome alignment.  This especially becomes problematic due to the erros that may
+arise during the PCR cycle.  If this error is then duplicated numerous times it may seem that there is a mutation or 
+difference from the reference at a certain location.
+
+
+
+General Workflow:
+    -Sort Sam file based on chromosome and starting position
+    -Check if UMI is valid
+    -Check if UMI's are identical
+    -Check the chromosome
+    -Check if strand is 3' or 5' using bitwise flag
+    -Calculate the 5' starting position
+    -Check if the starting position matches the previous record
+
+
+
+Psuedocode
+def get_args():
+	```argparse function that allows user input of file that contains UMIs and SAM file input, as well as outfile name```
+	argparse commands -u --umi
+	argparse command -i --input
+	argparse command -o --output
+	(if time challenge problems -p TRUE or False for paired end reads)
+	return args
+
+def sort_SAM(file_name):
+	```takes SAM input file specified by argparse and sorts it by chromsome and then starting position```
+	Call bash command that sorts SAM file?
+	If this doesnt work just create a bash script that sorts SAM file and then calls this python script
+
+def get_UMI(file_name):
+	```Takes UMI input file as parameter and creates dict of all UMIs```
+	INPUT: AACGCCAT
+		AAGGTACG
+		AATTCCGG
+		ACACAGAG
+	Output: umi_dict[AAGGTACG] = 0
+			umi_dict[AAGGTACG] = 0
+			umi_dict[AATTCCGG] = 0
+			umi_dict[ACACAGAG] = 0
+	#depends on how this file is laid out
+	while open
+		for line in file
+			strip line
+				add umi as key in dictionary value = 0
+	return umi_dict
+
+def get_read_info(string):
+	```takes string (should be a line of SAM file) and extracts chromosome number, UMI, 5' start, and direction```
+	Input: NS500451:154:HWKTMBGXX:1:11101:24260:1121:CTGTTCAC      0       2       76814284        36      71M     *       0      0TCCACCACAATCTTACCATCCTTCCTCCAGACCACATCGCGTTCTTTGTTCAACTCACAGCTCAAGTACAA 6AEEEEEEAEEAEEEEAAEEEEEEEEEAEEAEEAAEE<EEEEEEEEEAEEEEEEEAAEEAAAEAEEAEAE/ MD:Z:71 NH:i:1  HI:i:1  NM:i:0  SM:i:36 XQ:i:40 X2:i:0  XO:Z:UU
+	Output: tuple(chrom #, UMI, start position, Forward or Reverse)
+		(2, CTGTTCAC, 76814284, Forward)
+	split string by spaces
+	figure out which columns you care about
+	extract chromosome number
+	extract UMI
+	extract bit flag and check the direction
+	extract and calculate five prime start sight based on cigar string (soft clipping and indels)
+	return extracted 
+	
+
+def main_function(umi_dict, input_sam_file, output_Sam_file):
+	```parses through sam file determining wether a read is a duplicate or not```
+	create forward dictionary; keys = extracted info from get_read_info forwards; values = number of times that combo appeared
+	create reverse dictionary; keys = extracted info from get_read_info reverse; values = number of times that combo appeared
+	(may present memory issues, maybe have variable chrom = x)
+	
+	open input and output sam files
+		for line in input file
+			if the line is a header line
+				write line to output file (good and bad)
+			else
+			#check to see if its duplicated
+				pass line (sam file) to get_read_info
+				if get_read_info returns chrom number not equal to x
+					reset forward and reverse dictionaries to null
+				
+				check returned umi and see if it is valid
+				if forward
+					if forward dictionary contains same combination
+						write out to bad file
+						increase appropriate dictionary value by one forward reads
+						increase umi dictionary by one
+					else
+						write to good file
+						add combo to forward dictionary
+				else
+					if reverse dictionary for same combination
+						write out to bad file
+						increase appropriate dictionary value by one for reverse
+						increase umi dictionary by one
+					else
+						write to good file
+						add combo to reverse dictionary
+
+	return null
