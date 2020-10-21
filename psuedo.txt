@@ -77,7 +77,7 @@ def main_function(umi_dict, input_sam_file, output_Sam_file):
 			if the line is a header line
 				write line to output file (good and bad)
 			else
-			#check to see if its duplicated
+			#check to see if its duplicated (first check to see if it mapped)
 				pass line (sam file) to get_read_info
 				if get_read_info returns chrom number not equal to x
 					reset forward and reverse dictionaries to null
