@@ -1,0 +1,10 @@
+
+Good output file contains read 1, 2, 4, 6, 7, 9, 13
+
+read 11 unmapped
+
+read12 unknown umi
+
+duplicates 3, 5, 8, 10
+
+

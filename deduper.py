@@ -2,6 +2,7 @@
 
 import argparse
 import re
+import os
 
 def get_args():
     parser = argparse.ArgumentParser(description = "Deduper - To aid in the removal of PCR Duplicates")
@@ -17,8 +18,6 @@ input_sam = args.sam_file
 umi_file = args.umi_file
 output_name = args.output
 paired_end = args.paired
-
-#sort file by strandedness, chrom, UMI, left most, quality?
 
 def create_UMI_dict(umi_file, number): 
     """This function takes the input of a file containing a list of UMI's that should appear in the SAM file and adds them to a dictionary as the keys and assigns each a value of 0"""
@@ -78,6 +77,8 @@ def calc_start(stranded, start_pos, cigar):
     return actual_pos
 
 def error_correct(umi, umi_dict):
+    """this function takes in an incorrect umi and compares it to those in the dictionary trying to correct it, it will only work given there is a single nucleotide differene"""
+
     for item in umi_dict:
         mistake = 0
         for i in range(len(umi)):
@@ -87,28 +88,38 @@ def error_correct(umi, umi_dict):
             umi = item
     return umi
 
-
-def main_function(umi_file, sam_file, output_name):
-    forward = create_UMI_dict(umi_file, [])
-    reverse = create_UMI_dict(umi_file, [])
-    count_dup = create_UMI_dict(umi_file, 0)
-    current_chrom = -1
-    #print(forward)
-    #create reverse umi dictionary
-    #create forward UMI dictionary
-    #create UMI count dictionary
-    #do it seperately since dictionaries point to eachother
-    with open(sam_file, "r") as sam, open("{}.deduplicated.out".format(output_name), "w") as dedup_out, open("{}.duplicates.out".format(output_name), "w") as duplicates, open("{}.unmapped.out".format(output_name),"w") as unmapped, open("{}.unknownUMI.out".format(output_name), "w") as unknown:
+def print_headers(sam):
+    """goes through original sam files header lines and prints them to output files"""
+    with open(sam, "r") as sam:
         for line in sam:
             if line.startswith("@"):
+                #print("@")
                 dedup_out.write(line)
                 duplicates.write(line)
                 unmapped.write(line)
                 unknown.write(line)
             else:
+                #print("else")
+                return True
+
+def main_function(umi_file, sam_file, output_name):
+    reads = create_UMI_dict(umi_file, [])
+    count_dup = create_UMI_dict(umi_file, 0)
+    current_chrom = -1
+    current_strand = ""
+    #print(forward)
+    #create reverse umi dictionary
+    #create forward UMI dictionary
+    #create UMI count dictionary
+    #do it seperately since dictionaries point to eachother
+    with open(sam_file, "r") as sam:
+        for line in sam:
+            if line.startswith("@"):
+                print("line started with @, what happened")
+            else:
                 line.strip()
                 factors = get_Factors(line)
-
+                #print(factors)
                 umi = factors[0]
                 chrom = factors[1]
                 strand = factors[2]
@@ -120,54 +131,61 @@ def main_function(umi_file, sam_file, output_name):
                     unmapped.write(line + "\n")
                 else:
                     #it mapped
-                    if current_chrom != factors[1]:
+                    if current_chrom != factors[1] or current_strand != strand:
                         #meaning current chrom progressed
-                        forward = {item:[] for item in forward}
-                        reverse = {item:[] for item in reverse}
-                        current_chrom = factors[1]
-                    if current_chrom == factors[1]:
-                        #we are on same chromosome
+                        #if current_strand != strand:
+                            #print("strandd_switched")
+                        reads = {item:[] for item in reads}
+                        current_chrom = chrom
+                        current_strand = strand
+                    if current_chrom == chrom and current_strand == strand:
+                        #we are on same chromosome and same direction
                         if umi not in count_dup:
                             #if UMI does not appear in UMI count dictionary (error correct UMI)
                             umi = error_correct(factors[0], count_dup)
                         if umi in count_dup:
                             #if UMI appears in UMI count dictionary
-                            if strand == 'forward':
-                                if start_pos in forward[umi]:
+                            
+                            if start_pos in reads[umi]:
                                 #check forward dictionary[umi] for starting position
                                     #increment count[umi]
-                                    count_dup[umi] += 1
+                                count_dup[umi] += 1
                                     #write out read to duplicated
-                                    duplicates.write(line + "\n")
-                                else:
-                                    #write to good_reads
-                                    dedup_out.write(line + "\n")
-                                    #add to forward dictionary
-                                    forward[umi].append(start_pos)
-                                    #print(forward[umi])
+                                duplicates.write(line + "\n")
                             else:
-                                #read is reverse
-                                if start_pos in reverse[umi]:
-                                    #increment count[umi]
-                                    count_dup[umi] += 1
-                                    duplicates.write(line + "\n")
-                                    #write out to read duplicated
-                                    pass
-                                else:
                                     #write to good_reads
-                                    dedup_out.write(line + "\n")
-                                    #add to reverse dictionary
-                                    reverse[umi].append(start_pos)
-                                    pass
+                                dedup_out.write(line + "\n")
+                                    #add to forward dictionary
+                                reads[umi].append(start_pos)
+                                    #print(forward[umi])
                         else:
                             #write out to UMI_not_found file
                             unknown.write(line+"\n")
     return "Finished"
 
-main_function(umi_file, input_sam, output_name)
 
-# def sort_SAM(file_name):
-# 	```takes SAM input file specified by argparse and sorts it by chromsome and then starting position```
-# 	Call bash command that sorts SAM file?
-# 	If this doesnt work just create a bash script that sorts SAM file and then calls this python script
 
+
+#samtools commands to create files go here, should create a positive and negative.sam temp file
+
+sorted_sam = "samtools sort -O sam {} > ./{}.sorted.sam".format(input_sam, output_name)
+os.system(sorted_sam)
+positive_command = "samtools view -F 16 ./{}.sorted.sam > ./positive.sam".format(output_name)
+os.system(positive_command)
+negative_command = "samtools view -f 16 ./{}.sorted.sam > ./negative.sam".format(output_name)
+os.system(negative_command)
+
+positive = "./positive.sam"
+negative = "./negative.sam"
+
+with open("{}.deduplicated.out".format(output_name), "w") as dedup_out, open("{}.duplicates.out".format(output_name), "w") as duplicates, open("{}.unmapped.out".format(output_name),"w") as unmapped, open("{}.unknownUMI.out".format(output_name), "w") as unknown:
+    #open all files
+    print_headers(input_sam)
+
+    #parses through original samfile (only through lines that start with @)
+    main_function(umi_file, positive, output_name)
+    main_function(umi_file, negative, output_name)
+
+
+os.system("rm ./positive.sam")
+os.system("rm ./negative.sam")
