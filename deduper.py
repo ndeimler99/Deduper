@@ -107,17 +107,14 @@ def main_function(umi_file, sam_file, output_name):
     count_dup = create_UMI_dict(umi_file, 0)
     current_chrom = -1
     current_strand = ""
-    #print(forward)
-    #create reverse umi dictionary
-    #create forward UMI dictionary
-    #create UMI count dictionary
-    #do it seperately since dictionaries point to eachother
+    count=0
+
     with open(sam_file, "r") as sam:
         for line in sam:
             if line.startswith("@"):
-                print("line started with @, what happened")
+                pass
             else:
-                line.strip()
+                line = line.strip()
                 factors = get_Factors(line)
                 #print(factors)
                 umi = factors[0]
@@ -131,18 +128,19 @@ def main_function(umi_file, sam_file, output_name):
                     unmapped.write(line + "\n")
                 else:
                     #it mapped
-                    if current_chrom != factors[1] or current_strand != strand:
+                    if current_chrom != factors[1]:
                         #meaning current chrom progressed
                         #if current_strand != strand:
                             #print("strandd_switched")
                         reads = {item:[] for item in reads}
+                        #print("dict cleared")
                         current_chrom = chrom
-                        current_strand = strand
-                    if current_chrom == chrom and current_strand == strand:
+                    if current_chrom == chrom:
                         #we are on same chromosome and same direction
                         if umi not in count_dup:
                             #if UMI does not appear in UMI count dictionary (error correct UMI)
                             umi = error_correct(factors[0], count_dup)
+                            #print("error correct")
                         if umi in count_dup:
                             #if UMI appears in UMI count dictionary
                             
@@ -151,16 +149,19 @@ def main_function(umi_file, sam_file, output_name):
                                     #increment count[umi]
                                 count_dup[umi] += 1
                                     #write out read to duplicated
-                                duplicates.write(line + "\n")
+                                duplicates.write(line+ "\n")
                             else:
                                     #write to good_reads
-                                dedup_out.write(line + "\n")
+                                dedup_out.write(line+ "\n")
                                     #add to forward dictionary
                                 reads[umi].append(start_pos)
+                                #count+=1
+                                #print(count)
+
                                     #print(forward[umi])
                         else:
                             #write out to UMI_not_found file
-                            unknown.write(line+"\n")
+                            unknown.write(line+ "\n")
     return "Finished"
 
 
@@ -186,6 +187,6 @@ with open("{}.deduplicated.out".format(output_name), "w") as dedup_out, open("{}
     main_function(umi_file, positive, output_name)
     main_function(umi_file, negative, output_name)
 
-
+#os.system("wc -l ./negative.sam")
 os.system("rm ./positive.sam")
 os.system("rm ./negative.sam")
