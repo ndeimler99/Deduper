@@ -5,19 +5,27 @@ import re
 import os
 
 def get_args():
-    parser = argparse.ArgumentParser(description = "Deduper - To aid in the removal of PCR Duplicates")
-    parser.add_argument("-f", "--sam_file", help = "what is your input SAM file?", required = True)
-    parser.add_argument("-u", "--umi_file", help="What are your UMI's?", required=True)
+    """argparse function that takes user input"""
+    parser = argparse.ArgumentParser(description = "Deduper - To aid in the removal of PCR Duplicates from a SAM file based on chromosome number, UMI, and read start position; A conda environment with samtools version 1.7 must be activated")
+    parser.add_argument("-f", "--file", help = "what is your input SAM file?", required = True)
+    parser.add_argument("-u", "--umi", help="What are your UMI's? should be in a text file with an umi on each row of the file", required=True)
     parser.add_argument("-o", "--output", help = "what is the name you wish on your output file?", default = "output", required=False)
-    parser.add_argument("-p", "--paired", help="True for paired end", required = False, default = False)
+    parser.add_argument("-p", "--paired", help="True for paired end. If this is specified as true the program will end", required = False, default = False)
+    #argparse automatically has a -h --help function which returns the help messages specified above
+    #parser.add_argument("-h", "--help_function", help="This program allows for the import of an unsorted sam file and a file containing a list of all used UMIS. (-f and -u respectively).  It will return a deduplicated sam file, a sam file containing all duplicates, a sam file containing unknown umis, and a sam file containing unmapped reads. The prefix of these files can be set with the -o option", required=False)
     return parser.parse_args()
 
 args = get_args()
 
-input_sam = args.sam_file
-umi_file = args.umi_file
+input_sam = args.file
+umi_file = args.umi
 output_name = args.output
 paired_end = args.paired
+
+if paired_end == 'True':
+    print("This program cannot deduplicate a paired end sam file at this point in time")
+    exit()
+
 
 def create_UMI_dict(umi_file, number): 
     """This function takes the input of a file containing a list of UMI's that should appear in the SAM file and adds them to a dictionary as the keys and assigns each a value of 0"""
@@ -57,14 +65,17 @@ def calc_start(stranded, start_pos, cigar):
     """function that aids in the calculation of starting position based on strandedness"""
     #to calculate starting position if forward read add soft clipping if reverse read do not add soft clipping
     if stranded == "forward":
-        if "S" in cigar:
+        #s must be first letter
+        first_cigar_letter = re.findall(r"\D", cigar)[0]
+        if first_cigar_letter == "S":
             soft = cigar.split("S")[0]
             actual_pos = int(start_pos) - int(soft)
         else:
             actual_pos = start_pos
     else:
         #I only care about what happens after soft clipping
-        if "S" in cigar:
+        first_cigar_letter = re.findall(r"\D", cigar)[0]
+        if first_cigar_letter == "S":
             cigar = cigar.split("S")[1]
             num = re.findall(r"\d+", cigar)
             num = [int(i) for i in num]
