@@ -121,9 +121,12 @@ def main_function(umi_file, sam_file, output_name):
     count=0
 
     with open(sam_file, "r") as sam:
+        #open original input sam file
         for line in sam:
+            #if its a header line 
             if line.startswith("@"):
                 pass
+            #if it isnt a header line
             else:
                 line = line.strip()
                 factors = get_Factors(line)
@@ -192,12 +195,13 @@ negative = "./negative.sam"
 
 with open("{}.deduplicated.out".format(output_name), "w") as dedup_out, open("{}.duplicates.out".format(output_name), "w") as duplicates, open("{}.unmapped.out".format(output_name),"w") as unmapped, open("{}.unknownUMI.out".format(output_name), "w") as unknown:
     #open all files
+    #print header lines to all files
     print_headers(input_sam)
 
     #parses through original samfile (only through lines that start with @)
     main_function(umi_file, positive, output_name)
     main_function(umi_file, negative, output_name)
 
-#os.system("wc -l ./negative.sam")
+#remove temporary files
 os.system("rm ./positive.sam")
 os.system("rm ./negative.sam")
